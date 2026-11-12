@@ -1,0 +1,10 @@
+# Security and update policy
+
+- **Isolation:** Rootless Podman, no host sockets/home mounts, capability drop and `no-new-privileges`. `usb` exposes one device; `nested` relaxes seccomp. Networking is enabled and may reach the LAN. A VM is safer for high-risk programs.
+- **Base:** `docker.io/library/fedora:latest` (latest stable release); fresh uncached builds execute `dnf upgrade --refresh`. Fedora major upgrades can cause build failures. Watch the actual Fedora version, advisories and build logs.
+- **Cadence:** The GHCR workflow runs approximately every three days, plus pushes and manual runs. GitHub cron uses days 1, 4, 7, ... of each month, not a guaranteed 72-hour cadence; scheduled jobs may be delayed or suspended for inactivity.
+- **Gate:** Trivy scans candidate digests on amd64 and arm64. Any scanner error or **fixable HIGH/CRITICAL** CVE blocks `latest`/version tag promotion. **Unfixed** vulnerabilities can remain; false negatives are possible. Failed runs retain the previous published image. The unique candidate tag can remain accessible in a public package.
+- **Traceability:** The workflow creates Buildx multi-arch SBOM metadata, two SPDX JSON SBOM artifacts, GitHub provenance and SBOM attestations, and a Cosign keyless signature on the multi-arch image digest. Verify signatures against the repository's *specific workflow identity*, not only the registry address.
+- **Rollout:** GHCR does not automatically patch running Podman containers. Pull the new image and recreate each container; retain your named `/work` volume as needed. Production users should pin a verified digest and update it deliberately.
+- **Operational controls:** Protect workflow changes and release tags with appropriate GitHub repository permissions. If `GITHUB_TOKEN` lacks package write permission, grant the repository permission on existing GHCR packages. GitHub Artifact Attestations in private repos require eligible GitHub plans.
+- **Reporting:** Use GitHub's private vulnerability reporting feature, when enabled, or contact the maintainer privately. Keep the Fedora and RPM notices intact; see `THIRD_PARTY_NOTICES.md`.

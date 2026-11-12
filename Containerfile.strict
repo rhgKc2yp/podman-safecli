@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: MIT
+# Minimal general-purpose image for the strict profile.
+# Runtime isolation is enforced by safecli.sh, not by this Containerfile.
+FROM docker.io/library/fedora:latest
+
+# Refresh the current stable Fedora repositories and upgrade ALL installed
+# RPMs (including published security fixes) on uncached rebuilds.
+# Fail the build if the update step cannot complete.
+RUN dnf -y upgrade --refresh \
+    && dnf -y --setopt=install_weak_deps=False install \
+        ca-certificates \
+        curl \
+    && dnf clean all \
+    && rm -rf /var/cache/dnf \
+    && mkdir -p /work
+WORKDIR /work
+LABEL org.opencontainers.image.title="safecli-strict" \
+      org.opencontainers.image.description="Base tools for the rootless Podman strict profile"

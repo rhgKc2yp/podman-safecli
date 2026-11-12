@@ -1,0 +1,5 @@
+# Only Containerfiles are needed in the image build context.
+**
+!Containerfile.strict
+!Containerfile.usb
+!Containerfile.nested
