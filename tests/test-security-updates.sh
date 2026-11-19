@@ -28,6 +28,7 @@ grep -Fq 'sbom-path: sboms/arm64.attest.spdx.json' "$wf"
 grep -Fq -- '--platform "linux/$arch"' scripts/generate-sboms.sh
 grep -Fq -- '--select-catalogers=-file' scripts/generate-sboms.sh
 grep -Fq -- '--select-catalogers=rpm' scripts/generate-sboms.sh
+[[ $(grep -Fc 'SYFT_FILE_METADATA_SELECTION=none "$SYFT_BIN"' scripts/generate-sboms.sh) -eq 2 ]]
 grep -Fq 'cosign sign --yes' "$wf"
 grep -Fq 'bash scripts/promote-image.sh' "$wf"
 

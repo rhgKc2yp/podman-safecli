@@ -26,22 +26,23 @@ for arch in amd64 arm64; do
     -o "spdx-json=$full"
   test -s "$full"
 
-  # Syft's file cataloger can massively inflate an attested SBOM. Catalog all
-  # installed packages but omit file-only cataloging for the signed predicate.
-  "$SYFT_BIN" "$source" --platform "linux/$arch" \
+  # Disabling file catalogers alone does NOT disable package-owned file
+  # metadata (Syft defaults to "owned-by-package"). Keep package detection,
+  # but explicitly disable file metadata in the signed SBOM.
+  SYFT_FILE_METADATA_SELECTION=none "$SYFT_BIN" "$source" --platform "linux/$arch" \
     --select-catalogers=-file \
     -o "spdx-json=$attest"
   jq -c . "$attest" > "${attest}.compact"
   mv "${attest}.compact" "$attest"
 
-  coverage='package catalogers (excluding file-only entries)'
+  coverage='package catalogers (no file metadata)'
   size=$(wc -c < "$attest")
   if (( size > max_bytes )); then
     # Last-resort, explicitly labeled fallback: sign only installed RPMs.
     # The full multi-ecosystem SBOM remains in the workflow artifact and the
     # Buildx SBOM remains attached to the image digest in GHCR.
     echo "::warning::linux/$arch package SBOM is ${size} bytes; signing an RPM-only SBOM instead."
-    "$SYFT_BIN" "$source" --platform "linux/$arch" \
+    SYFT_FILE_METADATA_SELECTION=none "$SYFT_BIN" "$source" --platform "linux/$arch" \
       --select-catalogers=rpm \
       -o "spdx-json=$attest"
     jq -c . "$attest" > "${attest}.compact"

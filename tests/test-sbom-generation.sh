@@ -21,9 +21,18 @@ for arg in "$@"; do
 done
 [[ -n "$target" ]]
 case "$catalogers" in
-  all)   printf '{"packages":[{"name":"full"}],"files":[{"name":"file"}]}\n' > "$target" ;;
-  -file) printf '{"packages":[{"name":"normal","padding":"0123456789012345678901234567890123456789"}]}\n' > "$target" ;;
-  rpm)   printf '{"packages":[{"name":"rpm"}]}\n' > "$target" ;;
+  all)
+    [[ "${SYFT_FILE_METADATA_SELECTION:-}" != none ]] || exit 1
+    printf '{"packages":[{"name":"full"}],"files":[{"name":"file"}]}\n' > "$target"
+    ;;
+  -file)
+    [[ "${SYFT_FILE_METADATA_SELECTION:-}" == none ]] || exit 1
+    printf '{"packages":[{"name":"normal","padding":"0123456789012345678901234567890123456789"}]}\n' > "$target"
+    ;;
+  rpm)
+    [[ "${SYFT_FILE_METADATA_SELECTION:-}" == none ]] || exit 1
+    printf '{"packages":[{"name":"rpm"}]}\n' > "$target"
+    ;;
   *) echo "Unexpected catalogers: $catalogers" >&2; exit 1 ;;
 esac
 MOCK
