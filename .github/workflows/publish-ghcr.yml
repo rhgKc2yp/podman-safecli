@@ -34,6 +34,7 @@ jobs:
           bash -n safecli.sh scripts/promote-image.sh scripts/install-cli-toolchain.sh scripts/generate-sboms.sh
           bash tests/test-containerfiles.sh
           bash tests/test-security-updates.sh
+          bash tests/test-fedora-advisories.sh
           bash tests/test-sbom-generation.sh
           bash tests/test-launcher.sh
           bash tests/test-promotion.sh

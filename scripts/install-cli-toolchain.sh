@@ -74,6 +74,28 @@ packages=(
 # curl|sh installers or language package downloads run at image build time.
 dnf -y upgrade --refresh
 dnf -y --setopt=install_weak_deps=False install "${packages[@]}" "$@"
+
+# Fedora RPM CVEs are not covered by Trivy's supported distro advisory feeds.
+# Check Fedora's own updateinfo after installing every RPM, while DNF's
+# refreshed repository metadata is still available. An empty JSON array means
+# there are no newer packages associated with published security advisories.
+echo 'Checking Fedora security advisories for pending RPM updates...'
+if ! advisory_json=$(dnf -q advisory list --security --available --json); then
+  echo 'ERROR: Fedora security advisory query failed.' >&2
+  exit 1
+fi
+if ! jq -e 'type == "array"' <<< "$advisory_json" >/dev/null; then
+  echo 'ERROR: Fedora advisory query did not return a JSON array.' >&2
+  exit 1
+fi
+advisory_count=$(jq 'length' <<< "$advisory_json")
+if (( advisory_count > 0 )); then
+  echo "ERROR: ${advisory_count} Fedora security advisory entries have available RPM updates:" >&2
+  jq -r '.[] | "  \(.name) [\(.severity)] \(.nevra)"' <<< "$advisory_json" >&2
+  exit 1
+fi
+echo 'Fedora security advisory check passed (no pending published security updates).'
+
 dnf clean all
 rm -rf /var/cache/dnf
 

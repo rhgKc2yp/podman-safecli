@@ -11,6 +11,7 @@ for profile in strict usb nested; do
 done
 grep -Fq 'dnf -y upgrade --refresh' scripts/install-cli-toolchain.sh
 grep -Fq 'dnf -y --setopt=install_weak_deps=False install' scripts/install-cli-toolchain.sh
+grep -Fq 'dnf -q advisory list --security --available --json' scripts/install-cli-toolchain.sh
 grep -Fq 'dnf clean all' scripts/install-cli-toolchain.sh
 
 wf=.github/workflows/publish-ghcr.yml
