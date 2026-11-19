@@ -1,14 +1,43 @@
 # safecli
 
-Run unfamiliar CLI tools in **rootless Podman** with three isolation profiles. All images use the [Fedora Docker Official Image](https://hub.docker.com/_/fedora) (`docker.io/library/fedora:latest`) and enable container networking by default.
+Run unfamiliar CLI tools in **rootless Podman** with three isolation profiles. All images use the [Fedora Docker Official Image](https://hub.docker.com/_/fedora) (`docker.io/library/fedora:latest`), include a shared multi-language CLI toolchain, and enable container networking by default.
 
 | Profile | Isolation and tools | Memory | PIDs |
 | --- | --- | ---: | ---: |
-| `strict` | Read-only root filesystem, minimal tools, no host-directory mounts | 1.5 GiB | 192 |
+| `strict` | Read-only root filesystem, general-purpose CLI toolchain, no host-directory mounts | 1.5 GiB | 192 |
 | `usb` | As above, plus one explicitly allowed USB/serial device | 1.5 GiB | 192 |
 | `nested` | Bubblewrap support; seccomp unconfined **only** for this profile | 3 GiB | 384 |
 
 All profiles use `pasta` networking, `--cap-drop=ALL`, `no-new-privileges`, private namespaces, a 2-CPU limit and a persistent named `/work` volume. No host home directory, SSH agent, display or Podman socket is shared. Use `NETWORK=none` to disable networking when creating a container. Networking permits outbound traffic (including reachable LAN hosts): this is **not** a guarantee that untrusted programs are safe. USB access and the relaxed nested profile increase risk.
+
+## Preinstalled CLI software
+
+All three images install the same focused RPM list from [scripts/install-cli-toolchain.sh](scripts/install-cli-toolchain.sh). It covers the core Node.js, Python, Rust and Go CLI workflows without bundling unrelated runtimes. Compiler packages still increase image size and the number of components to monitor for vulnerabilities.
+
+| Area | Fedora RPMs / available commands |
+| --- | --- |
+| Shells | `bash`, `fish` |
+| Download, source, TLS | `curl`, `wget`, `ca-certificates`, `openssl`, `git`, `openssh-clients` |
+| UNIX, archives, text | `coreutils`, `findutils`, `diffutils`, `grep`, `sed`, `gawk`, `which`, `file`, `less`, `procps-ng`, `util-linux`, `tar`, `gzip`, `bzip2`, `xz`, `zstd`, `zip`, `unzip`, `patch`, `jq`, `ripgrep` |
+| Node.js / TypeScript | `nodejs`, `nodejs-npm` (`npm`/`npx`), `nodejs-devel`, `nodejs-corepack` (`corepack`, `pnpm`, `yarn` shims) |
+| Python | `python3`, `python3-pip`, `python3-devel`, `python3-virtualenv`, `pipx`, `uv`; also `python3 -m venv` |
+| Rust / Go | `rust`, `cargo`, `golang` (`go`, `gofmt`) |
+| Native builds | `gcc`, `gcc-c++`, `make`, `cmake`, `pkgconf-pkg-config`, `openssl-devel`, `libffi-devel`, `zlib-devel` |
+
+The `usb` profile additionally has `usbutils`, `libusb1`, `libusb1-devel`; the `nested` profile additionally has `bubblewrap` (the shared list already includes `util-linux`). Fedora updates and RPM installation run during uncached builds; no language package registry or third-party installer is invoked at build time. Corepack can download the project-selected pnpm/Yarn version at **runtime**.
+
+The launcher sets `HOME=/work`, and the image includes `/work/.local/bin`, `/work/.cargo/bin` and `/work/go/bin` in `PATH`. The npm global prefix is `/work/.local`, so user-installed CLI tools can live on the persistent named volume. For example:
+
+```sh
+./safecli.sh strict python-demo python3 -m venv /work/.venv
+./safecli.sh strict python-demo /work/.venv/bin/pip install some-package
+./safecli.sh strict shell-demo fish
+./safecli.sh strict js-demo node --version
+./safecli.sh strict rust-demo cargo --version
+./safecli.sh strict go-demo go version
+```
+
+Python's system environment is distribution-managed: install Python dependencies into a venv, through `pipx`, or with `uv`, instead of `pip install` into system Python. In `strict`/`usb`, the root filesystem is read-only and `/tmp` is `noexec`; tools that need executable temporary files can use a writable directory under `/work` (for example `TMPDIR=/work`). Only `/work` persists. Other runtimes (Ruby, PHP, Lua, Java, .NET, Dart, etc.) are deliberately omitted; install them in a separate image when a project needs one. Builds may exhaust the default memory/PID limits, especially for large Rust/Go projects.
 
 ## Requirements and usage
 

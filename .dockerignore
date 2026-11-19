@@ -1,5 +1,7 @@
-# Only Containerfiles are needed in the image build context.
+# Only Containerfiles and the shared toolchain installer enter the build context.
 **
 !Containerfile.strict
 !Containerfile.usb
 !Containerfile.nested
+!scripts/
+!scripts/install-cli-toolchain.sh

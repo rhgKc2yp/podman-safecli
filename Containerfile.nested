@@ -3,18 +3,13 @@
 # Actual nested sandbox support depends on host kernel/LSM configuration.
 FROM docker.io/library/fedora:latest
 
-# Refresh the current stable Fedora repositories and upgrade ALL installed
-# RPMs (including published security fixes) on uncached rebuilds.
-# Fail the build if the update step cannot complete.
-RUN dnf -y upgrade --refresh \
-    && dnf -y --setopt=install_weak_deps=False install \
-        ca-certificates \
-        curl \
+COPY scripts/install-cli-toolchain.sh /tmp/install-cli-toolchain.sh
+RUN bash /tmp/install-cli-toolchain.sh \
         bubblewrap \
-        util-linux \
-    && dnf clean all \
-    && rm -rf /var/cache/dnf \
+    && rm -f /tmp/install-cli-toolchain.sh \
     && mkdir -p /work
+ENV npm_config_prefix=/work/.local \
+    PATH="${PATH}:/work/.local/bin:/work/.cargo/bin:/work/go/bin"
 WORKDIR /work
 LABEL org.opencontainers.image.title="safecli-nested" \
-      org.opencontainers.image.description="Bubblewrap tools for the rootless Podman nested profile"
+      org.opencontainers.image.description="CLI toolchains and Bubblewrap for the rootless Podman nested profile"

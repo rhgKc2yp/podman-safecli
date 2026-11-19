@@ -12,9 +12,9 @@ The images are derived from the official Fedora stable container base:
 
 Installed third-party RPMs include (dependencies vary by Fedora release and architecture):
 
-- **strict:** Fedora base packages, `ca-certificates`, `curl` and dependencies.
-- **usb:** strict image packages plus `usbutils`, `libusb1` and dependencies.
-- **nested:** Fedora base packages plus `ca-certificates`, `curl`, `bubblewrap`, `util-linux` and dependencies.
+- **All profiles:** Fedora base packages plus the shared toolchain from `scripts/install-cli-toolchain.sh` (bash/fish; Node/npm/Corepack; Python/pip/virtualenv/pipx/uv; Rust/Cargo; Go; native-build prerequisites; essential download, archive and text-processing tools).
+- **usb:** shared packages plus `usbutils`, `libusb1`, `libusb1-devel` and dependencies.
+- **nested:** shared packages plus `bubblewrap` and dependencies.
 
 The Containerfiles do **not** remove Fedora's installed upstream license files or notices. License details may change as `fedora:latest` advances to newer supported Fedora releases, so a static list of individual package license expressions would become inaccurate.
 

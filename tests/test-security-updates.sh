@@ -7,10 +7,11 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 for profile in strict usb nested; do
   file="Containerfile.$profile"
   grep -Fqx 'FROM docker.io/library/fedora:latest' "$file"
-  grep -Fq 'dnf -y upgrade --refresh' "$file"
-  grep -Fq 'dnf -y --setopt=install_weak_deps=False install' "$file"
-  grep -Fq 'dnf clean all' "$file"
+  grep -Fq 'COPY scripts/install-cli-toolchain.sh /tmp/install-cli-toolchain.sh' "$file"
 done
+grep -Fq 'dnf -y upgrade --refresh' scripts/install-cli-toolchain.sh
+grep -Fq 'dnf -y --setopt=install_weak_deps=False install' scripts/install-cli-toolchain.sh
+grep -Fq 'dnf clean all' scripts/install-cli-toolchain.sh
 
 wf=.github/workflows/publish-ghcr.yml
 grep -Fq -- "- cron: '23 4 */3 * *'" "$wf"
