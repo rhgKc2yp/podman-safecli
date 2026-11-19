@@ -144,7 +144,7 @@ jobs:
         id: syft
         uses: anchore/sbom-action/download-syft@v0
 
-      - name: Generate full SBOMs and size-bounded attestation SBOMs
+      - name: Generate full SBOMs and digest manifest
         shell: bash
         env:
           IMAGE: ${{ steps.image.outputs.name }}
@@ -156,7 +156,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: sbom-${{ matrix.profile }}
-          path: sboms/*.spdx.json
+          path: sboms/*.json
           if-no-files-found: error
           retention-days: 30
 
@@ -168,21 +168,24 @@ jobs:
           push-to-registry: true
           create-storage-record: false
 
-      - name: Attest amd64 SBOM
+      # Large SBOMs cannot be used as sbom-path predicates (16 MiB limit).
+      # Here the full files are the signed subjects, not oversized predicates.
+      - name: Attest full SPDX SBOM files
         uses: actions/attest@v4
         with:
-          subject-name: ${{ steps.image.outputs.name }}
-          subject-digest: ${{ steps.build.outputs.digest }}
-          sbom-path: sboms/amd64.attest.spdx.json
-          push-to-registry: true
-          create-storage-record: false
+          subject-path: |
+            sboms/amd64.spdx.json
+            sboms/arm64.spdx.json
 
-      - name: Attest arm64 SBOM
+      # The small custom predicate binds both full SBOM hashes to the exact
+      # multi-architecture image digest in GitHub and the OCI registry.
+      - name: Attest full SBOM digests against image
         uses: actions/attest@v4
         with:
           subject-name: ${{ steps.image.outputs.name }}
           subject-digest: ${{ steps.build.outputs.digest }}
-          sbom-path: sboms/arm64.attest.spdx.json
+          predicate-type: https://github.com/${{ github.repository }}/attestations/sbom-digests/v1
+          predicate-path: sboms/sbom-digests.json
           push-to-registry: true
           create-storage-record: false
 
@@ -256,5 +259,5 @@ jobs:
               printf '| `%s` | `%s` | `%s` |\n' "$profile" "$image" "$digest"
             done
             echo ''
-            echo 'Each image passed Trivy checks for amd64/arm64, has full downloadable SBOMs and size-bounded SBOM attestations, and was keyless-signed with Cosign.'
+            echo 'Each image passed Trivy checks for amd64/arm64, has full downloadable SBOMs with file provenance and an image-bound SBOM digest attestation, and was keyless-signed with Cosign.'
           } >> "$GITHUB_STEP_SUMMARY"

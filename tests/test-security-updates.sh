@@ -23,12 +23,16 @@ grep -Fq 'uses: actions/download-artifact@v8' "$wf"
 grep -Fq 'uses: actions/attest@v4' "$wf"
 grep -Fq 'sbom: true' "$wf"
 grep -Fq 'run: bash scripts/generate-sboms.sh' "$wf"
-grep -Fq 'sbom-path: sboms/amd64.attest.spdx.json' "$wf"
-grep -Fq 'sbom-path: sboms/arm64.attest.spdx.json' "$wf"
+grep -Fq 'subject-path: |' "$wf"
+grep -Fq 'predicate-path: sboms/sbom-digests.json' "$wf"
+grep -Fq 'predicate-type: https://github.com/' "$wf"
+if grep -Fq 'sbom-path:' "$wf"; then
+  echo 'Do not pass oversized full SBOMs as predicates.' >&2
+  exit 1
+fi
 grep -Fq -- '--platform "linux/$arch"' scripts/generate-sboms.sh
-grep -Fq -- '--select-catalogers=-file' scripts/generate-sboms.sh
-grep -Fq -- '--select-catalogers=rpm' scripts/generate-sboms.sh
-[[ $(grep -Fc 'SYFT_FILE_METADATA_SELECTION=none "$SYFT_BIN"' scripts/generate-sboms.sh) -eq 2 ]]
+grep -Fq 'sha256sum "$amd64_file"' scripts/generate-sboms.sh
+grep -Fq 'sha256sum "$arm64_file"' scripts/generate-sboms.sh
 grep -Fq 'cosign sign --yes' "$wf"
 grep -Fq 'bash scripts/promote-image.sh' "$wf"
 

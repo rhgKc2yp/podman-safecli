@@ -1,69 +1,44 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
-# Generate complete downloadable SBOMs and size-bounded SBOM attestations.
+# Generate full downloadable SBOMs and a tiny signed digest manifest.
 set -euo pipefail
 
 : "${IMAGE:?IMAGE is required}"
 : "${DIGEST:?DIGEST is required}"
 : "${SYFT_BIN:?SYFT_BIN is required}"
 
-# actions/attest rejects sbom-path inputs larger than 16 MiB. The override is
-# intended for lightweight regression tests; GitHub's real limit is fixed.
-max_bytes=${SBOM_ATTEST_MAX_BYTES:-16777216}
-[[ "$max_bytes" =~ ^[0-9]+$ ]] && (( max_bytes > 0 )) || {
-  echo 'SBOM_ATTEST_MAX_BYTES must be a positive integer.' >&2
-  exit 2
-}
-
 mkdir -p sboms
 for arch in amd64 arm64; do
   source="registry:${IMAGE}@${DIGEST}"
   full="sboms/${arch}.spdx.json"
-  attest="sboms/${arch}.attest.spdx.json"
 
-  # Retain Syft's full package and file inventory as a downloadable artifact.
+  # No file-size limit: preserve the complete package and file inventory.
   "$SYFT_BIN" "$source" --platform "linux/$arch" \
     -o "spdx-json=$full"
   test -s "$full"
-
-  # Disabling file catalogers alone does NOT disable package-owned file
-  # metadata (Syft defaults to "owned-by-package"). Keep package detection,
-  # but explicitly disable file metadata in the signed SBOM.
-  SYFT_FILE_METADATA_SELECTION=none "$SYFT_BIN" "$source" --platform "linux/$arch" \
-    --select-catalogers=-file \
-    -o "spdx-json=$attest"
-  jq -c . "$attest" > "${attest}.compact"
-  mv "${attest}.compact" "$attest"
-
-  coverage='package catalogers (no file metadata)'
-  size=$(wc -c < "$attest")
-  if (( size > max_bytes )); then
-    # Last-resort, explicitly labeled fallback: sign only installed RPMs.
-    # The full multi-ecosystem SBOM remains in the workflow artifact and the
-    # Buildx SBOM remains attached to the image digest in GHCR.
-    echo "::warning::linux/$arch package SBOM is ${size} bytes; signing an RPM-only SBOM instead."
-    SYFT_FILE_METADATA_SELECTION=none "$SYFT_BIN" "$source" --platform "linux/$arch" \
-      --select-catalogers=rpm \
-      -o "spdx-json=$attest"
-    jq -c . "$attest" > "${attest}.compact"
-    mv "${attest}.compact" "$attest"
-    coverage='RPM packages only (fallback)'
-    size=$(wc -c < "$attest")
-  fi
-
-  if (( size > max_bytes )); then
-    echo "ERROR: linux/$arch attestation SBOM is ${size} bytes (limit ${max_bytes})." >&2
-    exit 1
-  fi
-  test -s "$attest"
-  jq -e '.packages | type == "array" and length > 0' "$attest" >/dev/null || {
-    echo "ERROR: linux/$arch attestation SBOM contains no packages." >&2
-    exit 1
-  }
-  echo "linux/$arch full SBOM: $(wc -c < "$full") bytes; attested $coverage: $size bytes"
-
-  if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
-    printf -- '- linux/%s: full SPDX SBOM generated; signed SPDX SBOM covers %s (%s bytes).\n' \
-      "$arch" "$coverage" "$size" >> "$GITHUB_STEP_SUMMARY"
-  fi
+  echo "linux/$arch full SPDX SBOM: $(wc -c < "$full") bytes"
 done
+
+# actions/attest limits its predicate to 16 MiB, regardless of SBOM format.
+# Sign the full SBOM files as subjects and separately bind their SHA-256
+# digests to the OCI image through this small custom predicate.
+amd64_file=sboms/amd64.spdx.json
+arm64_file=sboms/arm64.spdx.json
+amd64_sha=$(sha256sum "$amd64_file" | cut -d ' ' -f1)
+arm64_sha=$(sha256sum "$arm64_file" | cut -d ' ' -f1)
+amd64_bytes=$(wc -c < "$amd64_file")
+arm64_bytes=$(wc -c < "$arm64_file")
+
+jq -n \
+  --arg amd64_hash "$amd64_sha" --arg arm64_hash "$arm64_sha" \
+  --argjson amd64_size "$amd64_bytes" --argjson arm64_size "$arm64_bytes" \
+  '{schemaVersion: 1, format: "SPDX JSON", digestAlgorithm: "sha256",
+    sboms: [
+      {platform: "linux/amd64", path: "sboms/amd64.spdx.json", sha256: $amd64_hash, sizeBytes: $amd64_size},
+      {platform: "linux/arm64", path: "sboms/arm64.spdx.json", sha256: $arm64_hash, sizeBytes: $arm64_size}
+    ]}' > sboms/sbom-digests.json
+
+test -s sboms/sbom-digests.json
+if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+  printf '%s\n' '- Full amd64/arm64 SPDX SBOMs retained; full-file provenance and image-bound SHA-256 digest manifest are attested.' >> "$GITHUB_STEP_SUMMARY"
+fi
