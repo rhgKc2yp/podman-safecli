@@ -75,6 +75,13 @@ packages=(
 dnf -y upgrade --refresh
 dnf -y --setopt=install_weak_deps=False install "${packages[@]}" "$@"
 
+# Opt in to Fedora 45 updates-testing only for the Node.js 26 package family,
+# including its Fedora-packaged npm 11.x. All other RPMs stay on stable repos;
+# this does not persistently enable updates-testing for later DNF commands.
+dnf -y --refresh --enable-repo=updates-testing \
+  --setopt='updates-testing.includepkgs=nodejs26*' \
+  upgrade 'nodejs26*'
+
 # Fish from the shells:fish OBS repository for Fedora 44. The Fedora 44
 # build is intentionally used on Fedora 45, for both supported architectures.
 # Pin the OBS signing key so a changed key cannot silently be trusted.

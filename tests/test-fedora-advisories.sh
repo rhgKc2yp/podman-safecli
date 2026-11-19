@@ -84,6 +84,8 @@ export MOCK_FISH_VERSION="fish, version $fish_version"
 MOCK_ADVISORY_JSON='[]' bash "$installer" > "$test_dir/clean.log"
 grep -Fq 'Fedora security advisory check passed' "$test_dir/clean.log"
 grep -Fq 'clean all' "$MOCK_DNF_CALLS"
+grep -Fq -- '--enable-repo=updates-testing --setopt=updates-testing.includepkgs=nodejs26* upgrade nodejs26*' "$MOCK_DNF_CALLS"
+[[ $(grep -Fc -- '--enable-repo=updates-testing' "$MOCK_DNF_CALLS") == 1 ]]
 grep -Fq "fish-$fish_version-$fish_release.x86_64.rpm" "$MOCK_DOWNLOADS"
 
 MOCK_RPM_ARCH=aarch64 bash "$installer" > "$test_dir/arm64.log"

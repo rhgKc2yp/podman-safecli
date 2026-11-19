@@ -40,6 +40,9 @@ for rpm in fish nodejs nodejs-npm nodejs-devel; do
   fi
 done
 grep -Fq 'fish-${fish_version}-${fish_release}.$fish_arch.rpm' "$toolchain"
+grep -Fq -- '--enable-repo=updates-testing' "$toolchain"
+grep -Fq -- "--setopt='updates-testing.includepkgs=nodejs26*'" "$toolchain"
+grep -Fq -- "upgrade 'nodejs26*'" "$toolchain"
 grep -Fq 'rpmkeys --checksig "$fish_rpm"' "$toolchain"
 grep -Fq -- '--setopt=localpkg_gpgcheck=True' "$toolchain"
 if grep -Eq 'npm install --global|npm@12' "$toolchain"; then
