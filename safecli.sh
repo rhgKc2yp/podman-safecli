@@ -90,7 +90,12 @@ if ! podman container exists "$container"; then
     --workdir=/work
     --env=HOME=/work
     --env=XDG_CACHE_HOME=/work/.cache
-    --volume "$volume:/work:rw,nosuid,nodev"
+    --env=XDG_CONFIG_HOME=/work/.config
+    --env=XDG_DATA_HOME=/work/.local/share
+    # With --userns=nomap, container UID 1000 maps to a subordinate host UID.
+    # :U fixes ownership of this dedicated named volume, including old volumes
+    # whose automatic first-mount chown was skipped or no longer matches.
+    --volume "$volume:/work:rw,nosuid,nodev,U"
     --stop-timeout=2
   )
 
@@ -167,6 +172,16 @@ fi
 state=$(podman inspect --format '{{.State.Running}}' "$container")
 if [[ "$state" != true ]]; then
   podman start "$container" >/dev/null
+fi
+
+# Fish, npm, pip, Cargo and Go all require a writable /work. Probe an actual
+# write as the container's unprivileged user; -w alone can miss MAC denials.
+if ! podman exec "$container" /bin/sh -c \
+  'probe=$(mktemp /work/.safecli-write-XXXXXXXX) && rm -f "$probe"'; then
+  echo "ERROR: /work is not writable by the sandbox user in $container." >&2
+  echo "To apply updated volume ownership, remove and recreate only the container; keep the named volume $volume." >&2
+  echo "If the problem persists, inspect volume permissions and SELinux denials on the host." >&2
+  exit 1
 fi
 
 if (( $# == 0 )); then

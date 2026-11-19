@@ -33,7 +33,12 @@ case "${1:-}" in
     esac
     ;;
   start) exit 0 ;;
-  exec) printf '%s\n' "$@" > "$MOCK_PODMAN_EXEC" ;;
+  exec)
+    if [[ "${MOCK_WORK_WRITABLE:-yes}" == no && "$*" == *'mktemp /work/'* ]]; then
+      exit 1
+    fi
+    printf '%s\n' "$@" > "$MOCK_PODMAN_EXEC"
+    ;;
   *) echo "Unexpected mocked Podman call: $*" >&2; exit 1 ;;
 esac
 MOCK
@@ -43,7 +48,7 @@ case "${1:-}" in -u|-g) echo 1000 ;; *) /usr/bin/id "$@" ;; esac
 MOCK
 chmod +x "$tmp/bin/podman" "$tmp/bin/id"
 export PATH="$tmp/bin:$PATH"
-unset NETWORK IMAGE IMAGE_PREFIX IMAGE_TAG USB_DEVICE MOCK_PODMAN_IMAGES
+unset NETWORK IMAGE IMAGE_PREFIX IMAGE_TAG USB_DEVICE MOCK_PODMAN_IMAGES MOCK_WORK_WRITABLE
 
 has_arg() { grep -Fqx -- "$1" "$MOCK_PODMAN_CREATE"; }
 not_arg() { ! has_arg "$1"; }
@@ -56,7 +61,19 @@ has_arg '--pids-limit=192'
 has_arg '--memory=1536m'
 has_arg '--memory-swap=1536m'
 has_arg '--read-only'
+has_arg '--env=HOME=/work'
+has_arg '--env=XDG_CONFIG_HOME=/work/.config'
+has_arg '--env=XDG_DATA_HOME=/work/.local/share'
+has_arg '--volume'
+has_arg 'safecli-vol-strict-mock-strict:/work:rw,nosuid,nodev,U'
 not_arg '--security-opt=seccomp=unconfined'
+
+# A volume permissions failure must stop before running the requested CLI.
+if MOCK_WORK_WRITABLE=no ./safecli.sh strict mock-unwritable true 2> "$tmp/work.err"; then
+  echo 'ERROR: An unwritable /work unexpectedly passed the startup check.' >&2
+  exit 1
+fi
+grep -Fq '/work is not writable' "$tmp/work.err"
 
 # Select an existing local build when GHCR was not pulled, without changing
 # the image chosen by an explicit override.

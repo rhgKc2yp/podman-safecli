@@ -26,7 +26,7 @@ All three images install the same focused RPM list from [scripts/install-cli-too
 
 The `usb` profile additionally has `usbutils`, `libusb1`, `libusb1-devel`; the `nested` profile additionally has `bubblewrap` (the shared list already includes `util-linux`). Fedora updates and RPM installation run during uncached builds; no language package registry or third-party installer is invoked at build time. Corepack can download the project-selected pnpm/Yarn version at **runtime**.
 
-The launcher opens **fish by default** when no command is provided (`/bin/sh` remains available explicitly). The image also sets `SHELL=/usr/bin/fish` and uses fish as its default image command. All package-manager user installs belong under the **persistent, writable `/work` named volume**, since the system directories are read-only in `strict` and `usb`:
+The launcher opens **fish by default** when no command is provided (`/bin/sh` remains available explicitly). The image also sets `SHELL=/usr/bin/fish` and uses fish as its default image command. All package-manager user installs belong under the **persistent, writable `/work` named volume**, since the system directories are read-only in `strict` and `usb`. The launcher sets `HOME=/work`, `XDG_CONFIG_HOME=/work/.config`, and `XDG_DATA_HOME=/work/.local/share` so fish history and configuration are stored on that volume:
 
 | Ecosystem | Persistent location | How to install |
 | --- | --- | --- |
@@ -87,7 +87,9 @@ NETWORK=none ./safecli.sh strict offline-test
 
 `usb` allows only specified USB/serial/hidraw character devices; SELinux may still restrict device access. Nested user namespaces depend on host kernel/LSM settings and may not work on every host. For exact image selection, use `IMAGE='ghcr.io/rhgkc2yp/podman-safecli-strict@sha256:REPLACE_WITH_64_HEX_DIGEST'`; `IMAGE_TAG` and `IMAGE_PREFIX` are alternatives. The launcher uses `--pull=never`: pull the image explicitly before creating a sandbox.
 
-Containers and their `/work` volumes persist. To apply a new image, **recreate the container**; restarting it is not enough. Do not delete the named volume unless you want to delete its data:
+Containers and their `/work` volumes persist. The launcher uses Podman's `:U` mount option to correct ownership of the **dedicated named volume** for the container's unprivileged UID/GID, and checks that `/work` can actually be written before running a CLI. `:U` recursively changes file ownership within that Podman-managed volume at container creation, so reopening a large existing volume can be slow; it does **not** bind-mount your host home directory. If fish reports `Permission denied` for `/work/.config` or `/work/.local/share`, exit fish, then remove and recreate **only the container** with this updated launcher. Preserve the named volume. Since unknown CLI tools can read `/work`, do not store secrets or sensitive shell commands there.
+
+To apply a new image, **recreate the container**; restarting it is not enough. Do not delete the named volume unless you want to delete its data:
 
 ```sh
 podman stop safecli-strict-trial
