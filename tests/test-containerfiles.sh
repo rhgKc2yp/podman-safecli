@@ -13,8 +13,13 @@ for profile in strict usb nested; do
   grep -Fqx 'FROM docker.io/library/fedora:latest' "$file"
   grep -Fq 'COPY scripts/install-cli-toolchain.sh /tmp/install-cli-toolchain.sh' "$file"
   grep -Fq 'RUN bash /tmp/install-cli-toolchain.sh' "$file"
-  grep -Fq 'npm_config_prefix=/work/.local' "$file"
-  grep -Fq '/work/.cargo/bin:/work/go/bin' "$file"
+  grep -Fq 'SHELL=/usr/bin/fish' "$file"
+  grep -Fq 'NPM_CONFIG_PREFIX=/work/.npm-global' "$file"
+  grep -Fq 'CARGO_HOME=/work/.cargo' "$file"
+  grep -Fq 'GOPATH=/work/go' "$file"
+  grep -Fq 'GOBIN=/work/go/bin' "$file"
+  grep -Fq '/work/.npm-global/bin:/work/.local/bin:/work/.cargo/bin:/work/go/bin' "$file"
+  grep -Fqx 'CMD ["/usr/bin/fish"]' "$file"
   if grep -Eq 'apt-get|DEBIAN_FRONTEND|debian:|libusb-1.0-0' "$file"; then
     echo "Unexpected Debian instructions in $file" >&2
     exit 1
@@ -22,7 +27,7 @@ for profile in strict usb nested; do
 done
 
 for rpm in \
-  fish nodejs nodejs-npm nodejs-corepack python3 python3-pip \
+  fish nano nodejs nodejs-npm nodejs-corepack python3 python3-pip \
   python3-virtualenv pipx uv rust cargo golang curl wget unzip \
   gcc gcc-c++ make pkgconf-pkg-config; do
   grep -Fqx "  $rpm" "$toolchain"

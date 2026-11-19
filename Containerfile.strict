@@ -7,8 +7,13 @@ COPY scripts/install-cli-toolchain.sh /tmp/install-cli-toolchain.sh
 RUN bash /tmp/install-cli-toolchain.sh \
     && rm -f /tmp/install-cli-toolchain.sh \
     && mkdir -p /work
-ENV npm_config_prefix=/work/.local \
-    PATH="${PATH}:/work/.local/bin:/work/.cargo/bin:/work/go/bin"
+ENV SHELL=/usr/bin/fish \
+    NPM_CONFIG_PREFIX=/work/.npm-global \
+    CARGO_HOME=/work/.cargo \
+    GOPATH=/work/go \
+    GOBIN=/work/go/bin \
+    PATH="${PATH}:/work/.npm-global/bin:/work/.local/bin:/work/.cargo/bin:/work/go/bin"
 WORKDIR /work
+CMD ["/usr/bin/fish"]
 LABEL org.opencontainers.image.title="safecli-strict" \
       org.opencontainers.image.description="CLI toolchains for the rootless Podman strict profile"

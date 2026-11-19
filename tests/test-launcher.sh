@@ -8,6 +8,7 @@ tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 mkdir -p "$tmp/bin"
 export MOCK_PODMAN_CREATE="$tmp/create.args"
+export MOCK_PODMAN_EXEC="$tmp/exec.args"
 
 cat > "$tmp/bin/podman" <<'MOCK'
 #!/usr/bin/env bash
@@ -22,7 +23,8 @@ case "${1:-}" in
       *) echo missing ;;
     esac
     ;;
-  start|exec) exit 0 ;;
+  start) exit 0 ;;
+  exec) printf '%s\n' "$@" > "$MOCK_PODMAN_EXEC" ;;
   *) echo "Unexpected mocked Podman call: $*" >&2; exit 1 ;;
 esac
 MOCK
@@ -38,12 +40,17 @@ has_arg() { grep -Fqx -- "$1" "$MOCK_PODMAN_CREATE"; }
 not_arg() { ! has_arg "$1"; }
 
 ./safecli.sh strict mock-strict true
+[[ $(tail -n 1 "$MOCK_PODMAN_EXEC") == true ]]
 has_arg '--network=pasta'
 has_arg '--pids-limit=192'
 has_arg '--memory=1536m'
 has_arg '--memory-swap=1536m'
 has_arg '--read-only'
 not_arg '--security-opt=seccomp=unconfined'
+
+# Invoking the launcher without a command opens fish, not the old /bin/sh.
+./safecli.sh strict mock-shell
+[[ $(tail -n 1 "$MOCK_PODMAN_EXEC") == /usr/bin/fish ]]
 
 ./safecli.sh nested mock-nested true
 has_arg '--network=pasta'

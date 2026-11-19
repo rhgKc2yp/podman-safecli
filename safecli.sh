@@ -5,12 +5,13 @@
 # Examples:
 #   ./safecli.sh strict trial
 #   USB_DEVICE=/dev/bus/usb/001/005 ./safecli.sh usb probe /work/probe --help
-#   ./safecli.sh nested sandbox /bin/sh
+#   ./safecli.sh nested sandbox /usr/bin/fish
 set -euo pipefail
 
 usage() {
   cat >&2 <<'HELP'
 Usage: safecli.sh {strict|usb|nested} NAME [COMMAND [ARG...]]
+  Without COMMAND, open fish (use /bin/sh explicitly for a POSIX shell).
   IMAGE=...                    Exact image (overrides prefix / tag)
   IMAGE_PREFIX=...             Image base, e.g. ghcr.io/owner/repo (default: localhost/safecli)
   IMAGE_TAG=...                Image tag (default: latest)
@@ -162,7 +163,7 @@ if [[ "$state" != true ]]; then
 fi
 
 if (( $# == 0 )); then
-  set -- /bin/sh
+  set -- /usr/bin/fish
 fi
 exec_flags=(-i)
 if [[ -t 0 && -t 1 ]]; then

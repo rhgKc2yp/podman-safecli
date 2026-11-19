@@ -16,7 +16,7 @@ All three images install the same focused RPM list from [scripts/install-cli-too
 
 | Area | Fedora RPMs / available commands |
 | --- | --- |
-| Shells | `bash`, `fish` |
+| Shells / editor | `bash`, `fish` (default interactive shell), `nano` |
 | Download, source, TLS | `curl`, `wget`, `ca-certificates`, `openssl`, `git`, `openssh-clients` |
 | UNIX, archives, text | `coreutils`, `findutils`, `diffutils`, `grep`, `sed`, `gawk`, `which`, `file`, `less`, `procps-ng`, `util-linux`, `tar`, `gzip`, `bzip2`, `xz`, `zstd`, `zip`, `unzip`, `patch`, `jq`, `ripgrep` |
 | Node.js / TypeScript | `nodejs`, `nodejs-npm` (`npm`/`npx`), `nodejs-devel`, `nodejs-corepack` (`corepack`, `pnpm`, `yarn` shims) |
@@ -26,18 +26,31 @@ All three images install the same focused RPM list from [scripts/install-cli-too
 
 The `usb` profile additionally has `usbutils`, `libusb1`, `libusb1-devel`; the `nested` profile additionally has `bubblewrap` (the shared list already includes `util-linux`). Fedora updates and RPM installation run during uncached builds; no language package registry or third-party installer is invoked at build time. Corepack can download the project-selected pnpm/Yarn version at **runtime**.
 
-The launcher sets `HOME=/work`, and the image includes `/work/.local/bin`, `/work/.cargo/bin` and `/work/go/bin` in `PATH`. The npm global prefix is `/work/.local`, so user-installed CLI tools can live on the persistent named volume. For example:
+The launcher opens **fish by default** when no command is provided (`/bin/sh` remains available explicitly). The image also sets `SHELL=/usr/bin/fish` and uses fish as its default image command. All package-manager user installs belong under the **persistent, writable `/work` named volume**, since the system directories are read-only in `strict` and `usb`:
+
+| Ecosystem | Persistent location | How to install |
+| --- | --- | --- |
+| npm global tools | `/work/.npm-global` (`NPM_CONFIG_PREFIX`) | `npm install -g <package>` |
+| Python packages | `/work/venv` (create once after container startup) | `/work/venv/bin/pip install <package>` |
+| Cargo tools | `/work/.cargo` (`CARGO_HOME`) | `cargo install <package>` |
+| Go tools | `/work/go` (`GOPATH`, `GOBIN=/work/go/bin`) | `go install example.com/tool@latest` |
+
+The image adds `/work/.npm-global/bin`, `/work/.cargo/bin` and `/work/go/bin` to `PATH`. It also retains `/work/.local/bin` for `pipx`, `uv` and npm tools installed with the old prefix. System directories precede these user-writable directories in `PATH`, so user-installed commands do not accidentally override core system commands. You do **not** need to run `npm config set prefix` or export paths in fish; the image configures them already.
+
+Create the Python virtual environment **after** the `/work` volume is mounted, not while building the image, because the mount hides image-layer files at `/work`. For example:
 
 ```sh
-./safecli.sh strict python-demo python3 -m venv /work/.venv
-./safecli.sh strict python-demo /work/.venv/bin/pip install some-package
-./safecli.sh strict shell-demo fish
+./safecli.sh strict python-demo python3 -m venv /work/venv
+./safecli.sh strict python-demo /work/venv/bin/pip install some-package
+./safecli.sh strict shell-demo                   # opens fish
+./safecli.sh strict shell-demo nano /work/note.txt
+./safecli.sh strict js-demo npm config get prefix  # /work/.npm-global
 ./safecli.sh strict js-demo node --version
 ./safecli.sh strict rust-demo cargo --version
 ./safecli.sh strict go-demo go version
 ```
 
-Python's system environment is distribution-managed: install Python dependencies into a venv, through `pipx`, or with `uv`, instead of `pip install` into system Python. In `strict`/`usb`, the root filesystem is read-only and `/tmp` is `noexec`; tools that need executable temporary files can use a writable directory under `/work` (for example `TMPDIR=/work`). Only `/work` persists. Other runtimes (Ruby, PHP, Lua, Java, .NET, Dart, etc.) are deliberately omitted; install them in a separate image when a project needs one. Builds may exhaust the default memory/PID limits, especially for large Rust/Go projects.
+Python's system environment is distribution-managed: install Python dependencies into the `/work/venv` environment, through `pipx`, or with `uv`, instead of `pip install` into system Python. You can activate the venv in fish with `source /work/venv/bin/activate.fish`, or call its binaries directly. Recreate a persisted venv if a later image changes the major/minor Python version. In `strict`/`usb`, the root filesystem is read-only and `/tmp` is `noexec`; tools that need executable temporary files can use a writable directory under `/work` (for example `mkdir -p /work/tmp` then `set -gx TMPDIR /work/tmp` in fish). Only `/work` persists. Other runtimes (Ruby, PHP, Lua, Java, .NET, Dart, etc.) are deliberately omitted; install them in a separate image when a project needs one. Builds may exhaust the default memory/PID limits, especially for large Rust/Go projects.
 
 ## Requirements and usage
 
@@ -50,7 +63,7 @@ podman build --pull=always --no-cache -f Containerfile.strict -t localhost/safec
 podman build --pull=always --no-cache -f Containerfile.usb -t localhost/safecli-usb:latest .
 podman build --pull=always --no-cache -f Containerfile.nested -t localhost/safecli-nested:latest .
 chmod +x safecli.sh
-./safecli.sh strict trial /bin/sh
+./safecli.sh strict trial  # opens fish
 podman cp ./unknown-cli safecli-strict-trial:/work/unknown-cli
 ./safecli.sh strict trial /work/unknown-cli --help
 ```

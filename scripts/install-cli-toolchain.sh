@@ -8,6 +8,7 @@ packages=(
   # Essential shells, downloads and Git transport.
   bash
   fish
+  nano
   ca-certificates
   curl
   wget
@@ -77,7 +78,7 @@ dnf clean all
 rm -rf /var/cache/dnf
 
 # Fail image builds if an RPM stops exposing a required CLI.
-for binary in fish node npm npx corepack python3 pip3 virtualenv pipx uv rustc cargo go; do
+for binary in fish nano node npm npx corepack python3 pip3 virtualenv pipx uv rustc cargo go; do
   command -v "$binary" >/dev/null || {
     echo "Missing expected executable after RPM installation: $binary" >&2
     exit 1
