@@ -47,8 +47,9 @@ packages=(
   nodejs26-devel
   nodejs-corepack
 
-  # Python: python3 -m venv, pip, virtualenv, pipx and uv.
+  # Python: expose both python and python3 for Python 3, plus venv and pip.
   python3
+  python-unversioned-command
   python3-pip
   python3-devel
   python3-virtualenv
@@ -140,12 +141,17 @@ dnf clean all
 rm -rf /var/cache/dnf
 
 # Fail image builds if an RPM stops exposing a required CLI.
-for binary in fish nano node npm npx corepack python3 pip3 virtualenv pipx uv rustc cargo go; do
+for binary in fish nano node npm npx corepack python python3 pip3 virtualenv pipx uv rustc cargo go; do
   command -v "$binary" >/dev/null || {
     echo "Missing expected executable after RPM installation: $binary" >&2
     exit 1
   }
 done
+
+[[ $(readlink -f "$(command -v python)") == "$(readlink -f "$(command -v python3)")" ]] || {
+  echo 'Expected python to resolve to the same Python 3 interpreter as python3.' >&2
+  exit 1
+}
 
 [[ $(node --version) == v26.* ]] || { echo 'Expected Node.js 26.' >&2; exit 1; }
 [[ $(npm --version) == 11.* ]] || { echo 'Expected Fedora npm 11.' >&2; exit 1; }

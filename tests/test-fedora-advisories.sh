@@ -72,7 +72,7 @@ MOCK
 chmod +x "$test_dir/bin/"{curl,sha256sum,rpm,rpmkeys,npm,node,fish}
 
 # Mock installed commands so a successful run reaches the final CLI check.
-for binary in nano npx corepack python3 pip3 virtualenv pipx uv rustc cargo go; do
+for binary in nano npx corepack python python3 pip3 virtualenv pipx uv rustc cargo go; do
   ln -s /usr/bin/true "$test_dir/bin/$binary"
 done
 

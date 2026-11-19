@@ -27,7 +27,7 @@ for profile in strict usb nested; do
 done
 
 for rpm in \
-  nano nodejs26 nodejs26-bin nodejs26-npm-bin nodejs26-devel nodejs-corepack python3 python3-pip \
+  nano nodejs26 nodejs26-bin nodejs26-npm-bin nodejs26-devel nodejs-corepack python3 python-unversioned-command python3-pip \
   python3-virtualenv pipx uv rust cargo golang curl wget unzip \
   gcc gcc-c++ make pkgconf-pkg-config; do
   grep -Fqx "  $rpm" "$toolchain"

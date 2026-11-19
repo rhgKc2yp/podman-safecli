@@ -20,7 +20,7 @@ All three images install the same focused toolchain from [scripts/install-cli-to
 | Download, source, TLS | `curl`, `wget`, `ca-certificates`, `openssl`, `git`, `openssh-clients` |
 | UNIX, archives, text | `coreutils`, `findutils`, `diffutils`, `grep`, `sed`, `gawk`, `which`, `file`, `less`, `procps-ng`, `util-linux`, `tar`, `gzip`, `bzip2`, `xz`, `zstd`, `zip`, `unzip`, `patch`, `jq`, `ripgrep` |
 | Node.js / TypeScript | Fedora `nodejs26`, `nodejs26-bin`, `nodejs26-npm-bin`, `nodejs26-devel`, `nodejs-corepack` (`corepack`, `pnpm`, `yarn` shims); **Node.js 26 LTS** and its Fedora-packaged **npm 11.x** (`npm`/`npx`) |
-| Python | `python3`, `python3-pip`, `python3-devel`, `python3-virtualenv`, `pipx`, `uv`; also `python3 -m venv` |
+| Python | `python3`, `python-unversioned-command` (`python` → `python3`), `python3-pip`, `python3-devel`, `python3-virtualenv`, `pipx`, `uv`; also `python -m venv` |
 | Rust / Go | `rust`, `cargo`, `golang` (`go`, `gofmt`) |
 | Native builds | `gcc`, `gcc-c++`, `make`, `cmake`, `pkgconf-pkg-config`, `openssl-devel`, `libffi-devel`, `zlib-devel` |
 
