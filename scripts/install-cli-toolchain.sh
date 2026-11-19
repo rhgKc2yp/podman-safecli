@@ -75,9 +75,11 @@ packages=(
 dnf -y upgrade --refresh
 dnf -y --setopt=install_weak_deps=False install "${packages[@]}" "$@"
 
-# Fish 4.9.3 from the shells:fish OBS repository for Fedora 44. The Fedora 44
+# Fish from the shells:fish OBS repository for Fedora 44. The Fedora 44
 # build is intentionally used on Fedora 45, for both supported architectures.
 # Pin the OBS signing key so a changed key cannot silently be trusted.
+fish_version='4.9.3'
+fish_release='8.2'
 fish_arch=$(rpm --eval '%{_arch}')
 case "$fish_arch" in
   x86_64|aarch64) ;;
@@ -99,7 +101,7 @@ fi
 rpm --import "$fish_key"
 curl --fail --silent --show-error --location --retry 3 \
   --proto '=https' --proto-redir '=https' \
-  --output "$fish_rpm" "$fish_repo/$fish_arch/fish-4.9.3-8.2.$fish_arch.rpm"
+  --output "$fish_rpm" "$fish_repo/$fish_arch/fish-${fish_version}-${fish_release}.$fish_arch.rpm"
 if ! rpmkeys --checksig "$fish_rpm"; then
   echo 'ERROR: OBS fish RPM signature verification failed.' >&2
   exit 1
@@ -140,7 +142,7 @@ done
 
 [[ $(node --version) == v26.* ]] || { echo 'Expected Node.js 26.' >&2; exit 1; }
 [[ $(npm --version) == 11.* ]] || { echo 'Expected Fedora npm 11.' >&2; exit 1; }
-[[ $(fish --version) == 'fish, version 4.9.3' ]] || {
-  echo 'Expected fish 4.9.3 from OBS.' >&2
+[[ $(fish --version) == "fish, version $fish_version" ]] || {
+  echo "Expected fish $fish_version from OBS." >&2
   exit 1
 }

@@ -39,7 +39,7 @@ for rpm in fish nodejs nodejs-npm nodejs-devel; do
     exit 1
   fi
 done
-grep -Fq 'fish-4.9.3-8.2.$fish_arch.rpm' "$toolchain"
+grep -Fq 'fish-${fish_version}-${fish_release}.$fish_arch.rpm' "$toolchain"
 grep -Fq 'rpmkeys --checksig "$fish_rpm"' "$toolchain"
 grep -Fq -- '--setopt=localpkg_gpgcheck=True' "$toolchain"
 if grep -Eq 'npm install --global|npm@12' "$toolchain"; then

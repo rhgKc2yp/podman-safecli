@@ -4,6 +4,9 @@
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 installer="$PWD/scripts/install-cli-toolchain.sh"
+fish_version=$(sed -n "s/^fish_version='\([0-9.]*\)'$/\1/p" "$installer")
+fish_release=$(sed -n "s/^fish_release='\([0-9.]*\)'$/\1/p" "$installer")
+[[ -n "$fish_version" && -n "$fish_release" ]]
 test_dir=$(mktemp -d)
 trap 'rm -rf "$test_dir"' EXIT
 mkdir -p "$test_dir/bin"
@@ -64,7 +67,7 @@ printf '%s\n' "${MOCK_NODE_VERSION:-v26.13.0}"
 MOCK
 cat > "$test_dir/bin/fish" <<'MOCK'
 #!/usr/bin/env bash
-printf '%s\n' "${MOCK_FISH_VERSION:-fish, version 4.9.3}"
+printf '%s\n' "$MOCK_FISH_VERSION"
 MOCK
 chmod +x "$test_dir/bin/"{curl,sha256sum,rpm,rpmkeys,npm,node,fish}
 
@@ -76,14 +79,15 @@ done
 export PATH="$test_dir/bin:$PATH"
 export MOCK_DNF_CALLS="$test_dir/dnf.calls"
 export MOCK_DOWNLOADS="$test_dir/downloads.calls"
+export MOCK_FISH_VERSION="fish, version $fish_version"
 
 MOCK_ADVISORY_JSON='[]' bash "$installer" > "$test_dir/clean.log"
 grep -Fq 'Fedora security advisory check passed' "$test_dir/clean.log"
 grep -Fq 'clean all' "$MOCK_DNF_CALLS"
-grep -Fq 'fish-4.9.3-8.2.x86_64.rpm' "$MOCK_DOWNLOADS"
+grep -Fq "fish-$fish_version-$fish_release.x86_64.rpm" "$MOCK_DOWNLOADS"
 
 MOCK_RPM_ARCH=aarch64 bash "$installer" > "$test_dir/arm64.log"
-grep -Fq 'fish-4.9.3-8.2.aarch64.rpm' "$MOCK_DOWNLOADS"
+grep -Fq "fish-$fish_version-$fish_release.aarch64.rpm" "$MOCK_DOWNLOADS"
 
 for failure_case in bad_key bad_signature wrong_node wrong_npm wrong_fish; do
   case "$failure_case" in
@@ -91,7 +95,7 @@ for failure_case in bad_key bad_signature wrong_node wrong_npm wrong_fish; do
     bad_signature) failure_env=(MOCK_BAD_SIGNATURE=1) ;;
     wrong_node) failure_env=(MOCK_NODE_VERSION=v22.0.0) ;;
     wrong_npm) failure_env=(MOCK_NPM_VERSION=12.0.0) ;;
-    wrong_fish) failure_env=(MOCK_FISH_VERSION='fish, version 4.8.0') ;;
+    wrong_fish) failure_env=(MOCK_FISH_VERSION='fish, version 0.0.0') ;;
   esac
   if env "${failure_env[@]}" bash "$installer" > "$test_dir/$failure_case.log" 2>&1; then
     echo "ERROR: $failure_case unexpectedly succeeded." >&2

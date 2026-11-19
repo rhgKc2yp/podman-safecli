@@ -1,0 +1,59 @@
+# SPDX-License-Identifier: MIT
+name: Propose openSUSE fish RPM updates
+
+on:
+  schedule:
+    # Daily at a non-round minute to reduce GitHub Actions schedule delays.
+    - cron: '37 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: safecli-update-obs-fish
+  cancel-in-progress: false
+
+jobs:
+  propose:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Check signed OBS metadata for both architectures
+        run: python3 scripts/update-obs-fish.py
+
+      - name: Validate the proposed changes
+        run: |
+          git diff --check
+          bash -n scripts/install-cli-toolchain.sh
+          bash tests/test-containerfiles.sh
+          python3 -m unittest discover -s tests -p 'test_obs_fish_update.py' -v
+
+      - name: Create or update fish RPM pull request
+        uses: peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1 # v8
+        with:
+          token: ${{ github.token }}
+          branch: automation/obs-fish-rpm
+          delete-branch: true
+          commit-message: 'chore: update openSUSE fish RPM'
+          title: 'chore: update openSUSE fish RPM'
+          body: |
+            An updated fish RPM is available in the signed openSUSE Build Service
+            `shells:fish/Fedora_44` repository for **both** `x86_64` and `aarch64`.
+
+            This PR updates only the pinned fish version/release and references.
+            The bot verifies the existing OBS signing key, the signed repository
+            metadata and RPM metadata checksums; **review before merging**.
+
+            After merging, the normal main-branch image workflow rebuilds,
+            scans and signs all three images.
+          add-paths: |
+            scripts/install-cli-toolchain.sh
+            README.md
+            THIRD_PARTY_NOTICES.md
