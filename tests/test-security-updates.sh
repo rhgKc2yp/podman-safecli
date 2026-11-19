@@ -22,7 +22,12 @@ grep -Fq 'uses: actions/upload-artifact@v7' "$wf"
 grep -Fq 'uses: actions/download-artifact@v8' "$wf"
 grep -Fq 'uses: actions/attest@v4' "$wf"
 grep -Fq 'sbom: true' "$wf"
-grep -Fq -- '--platform "linux/$arch"' "$wf"
+grep -Fq 'run: bash scripts/generate-sboms.sh' "$wf"
+grep -Fq 'sbom-path: sboms/amd64.attest.spdx.json' "$wf"
+grep -Fq 'sbom-path: sboms/arm64.attest.spdx.json' "$wf"
+grep -Fq -- '--platform "linux/$arch"' scripts/generate-sboms.sh
+grep -Fq -- '--select-catalogers=-file' scripts/generate-sboms.sh
+grep -Fq -- '--select-catalogers=rpm' scripts/generate-sboms.sh
 grep -Fq 'cosign sign --yes' "$wf"
 grep -Fq 'bash scripts/promote-image.sh' "$wf"
 

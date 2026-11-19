@@ -31,9 +31,10 @@ jobs:
           persist-credentials: false
       - name: Test shell and publisher rules
         run: |
-          bash -n safecli.sh scripts/promote-image.sh scripts/install-cli-toolchain.sh
+          bash -n safecli.sh scripts/promote-image.sh scripts/install-cli-toolchain.sh scripts/generate-sboms.sh
           bash tests/test-containerfiles.sh
           bash tests/test-security-updates.sh
+          bash tests/test-sbom-generation.sh
           bash tests/test-launcher.sh
           bash tests/test-promotion.sh
 
@@ -143,21 +144,13 @@ jobs:
         id: syft
         uses: anchore/sbom-action/download-syft@v0
 
-      - name: Generate architecture-specific SBOM files
+      - name: Generate full SBOMs and size-bounded attestation SBOMs
         shell: bash
         env:
           IMAGE: ${{ steps.image.outputs.name }}
           DIGEST: ${{ steps.build.outputs.digest }}
           SYFT_BIN: ${{ steps.syft.outputs.cmd }}
-        run: |
-          set -euo pipefail
-          mkdir -p sboms
-          for arch in amd64 arm64; do
-            "$SYFT_BIN" "registry:${IMAGE}@${DIGEST}" \
-              --platform "linux/$arch" \
-              -o "spdx-json=sboms/${arch}.spdx.json"
-            test -s "sboms/${arch}.spdx.json"
-          done
+        run: bash scripts/generate-sboms.sh
 
       - name: Upload SBOMs
         uses: actions/upload-artifact@v7
@@ -180,7 +173,7 @@ jobs:
         with:
           subject-name: ${{ steps.image.outputs.name }}
           subject-digest: ${{ steps.build.outputs.digest }}
-          sbom-path: sboms/amd64.spdx.json
+          sbom-path: sboms/amd64.attest.spdx.json
           push-to-registry: true
           create-storage-record: false
 
@@ -189,7 +182,7 @@ jobs:
         with:
           subject-name: ${{ steps.image.outputs.name }}
           subject-digest: ${{ steps.build.outputs.digest }}
-          sbom-path: sboms/arm64.spdx.json
+          sbom-path: sboms/arm64.attest.spdx.json
           push-to-registry: true
           create-storage-record: false
 
@@ -263,5 +256,5 @@ jobs:
               printf '| `%s` | `%s` | `%s` |\n' "$profile" "$image" "$digest"
             done
             echo ''
-            echo 'Each image passed Trivy checks for amd64/arm64, has SBOMs and GitHub attestations, and was keyless-signed with Cosign.'
+            echo 'Each image passed Trivy checks for amd64/arm64, has full downloadable SBOMs and size-bounded SBOM attestations, and was keyless-signed with Cosign.'
           } >> "$GITHUB_STEP_SUMMARY"

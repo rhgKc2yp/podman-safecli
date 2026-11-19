@@ -95,7 +95,7 @@ Each publication follows this sequence:
 
 1. Fetch `fedora:latest`, run `dnf upgrade --refresh`, and build both architectures **without layer cache**. Buildx attaches architecture-aware OCI SBOM metadata.
 2. Push a **uniquely named candidate** image; Trivy scans **both** architectures, and blocks normal tag promotion for **fixable HIGH or CRITICAL** vulnerabilities or scan errors. Scan JSON reports are saved as Actions artifacts. Candidates may remain in GHCR even if rejected; they are **not** release-approved.
-3. Generate downloadable SPDX JSON SBOMs for amd64 and arm64; publish GitHub **provenance and SBOM attestations**, bound to the full image digest and also pushed to GHCR.
+3. Generate full downloadable SPDX JSON SBOMs for amd64 and arm64, plus smaller SPDX SBOMs for GitHub **SBOM attestations** (which have a 16 MiB input limit). The attested SBOM omits file-only cataloging; if still too large, it covers RPM packages only and the Actions log/summary explicitly records that fallback. The complete SBOMs remain downloadable as workflow artifacts, while Buildx attaches its SBOM metadata to the image digest. Publish provenance and size-bounded SBOM attestations to GitHub and GHCR.
 4. **Cosign keyless-sign** the digest using GitHub OIDC and verify the expected workflow identity. Only after all checks pass, advance `:latest` (on `main`), a unique `:build-<run_id>-<attempt>` tag, or `:vX.Y.Z` (on a release-tag run). The Actions summary records each digest.
 
 `latest` and version tags are **not immutable** in GHCR. For repeatable use, pin `@sha256:<digest>` and verify the signed identity and provenance. A candidate tag is publicly pullable if the package is public, but never selected by `latest` if checks fail. Existing containers do **not** update on a registry push.
@@ -110,7 +110,7 @@ cosign verify "$IMAGE" \
 gh attestation verify "oci://$IMAGE" -R owner/repo
 ```
 
-For an image published from a `v*` tag, replace `@refs/heads/main` in the Cosign certificate identity with `@refs/tags/vX.Y.Z`. The SBOM and Trivy reports are available in the workflow run's artifacts (30-day retention); Buildx SBOM metadata and signed attestations are attached to the image digest. GitHub Artifact Attestations require a public repository on most non-Enterprise plans; for eligible private repositories, the plan must support private attestations.
+For an image published from a `v*` tag, replace `@refs/heads/main` in the Cosign certificate identity with `@refs/tags/vX.Y.Z`. The full and attested SPDX SBOMs and Trivy reports are available in the workflow run's artifacts (30-day retention); Buildx SBOM metadata and signed attestations are attached to the image digest. An attested SBOM may contain less detail than the full downloadable SBOM to respect GitHub's size limit; it is not a signature over the full file. GitHub Artifact Attestations require a public repository on most non-Enterprise plans; for eligible private repositories, the plan must support private attestations.
 
 **Security-update caveats:** `fedora:latest` follows the latest *stable* Fedora release, not Rawhide, but a major-version change can break builds. GitHub schedules can be delayed or disabled after prolonged inactivity. A failed build or scan leaves the previous `latest` image intact, **which may still have vulnerabilities**. Monitor Actions failures and security advisories, and roll forward image digests on each Podman host. See [SECURITY.md](SECURITY.md).
 
