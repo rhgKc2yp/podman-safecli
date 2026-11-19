@@ -12,19 +12,19 @@ All profiles use `pasta` networking, `--cap-drop=ALL`, `no-new-privileges`, priv
 
 ## Preinstalled CLI software
 
-All three images install the same focused RPM list from [scripts/install-cli-toolchain.sh](scripts/install-cli-toolchain.sh). It covers the core Node.js, Python, Rust and Go CLI workflows without bundling unrelated runtimes. Compiler packages still increase image size and the number of components to monitor for vulnerabilities.
+All three images install the same focused toolchain from [scripts/install-cli-toolchain.sh](scripts/install-cli-toolchain.sh). It covers the core Node.js, Python, Rust and Go CLI workflows without bundling unrelated runtimes. Compiler packages still increase image size and the number of components to monitor for vulnerabilities.
 
-| Area | Fedora RPMs / available commands |
+| Area | Packages / available commands |
 | --- | --- |
-| Shells / editor | `bash`, `fish` (default interactive shell), `nano` |
+| Shells / editor | Fedora `bash` and `nano`; fish **4.9.3** (default interactive shell) from the signed openSUSE Build Service Fedora 44 RPM |
 | Download, source, TLS | `curl`, `wget`, `ca-certificates`, `openssl`, `git`, `openssh-clients` |
 | UNIX, archives, text | `coreutils`, `findutils`, `diffutils`, `grep`, `sed`, `gawk`, `which`, `file`, `less`, `procps-ng`, `util-linux`, `tar`, `gzip`, `bzip2`, `xz`, `zstd`, `zip`, `unzip`, `patch`, `jq`, `ripgrep` |
-| Node.js / TypeScript | `nodejs`, `nodejs-npm` (`npm`/`npx`), `nodejs-devel`, `nodejs-corepack` (`corepack`, `pnpm`, `yarn` shims) |
+| Node.js / TypeScript | Fedora `nodejs26`, `nodejs26-bin`, `nodejs26-npm-bin`, `nodejs26-devel`, `nodejs-corepack` (`corepack`, `pnpm`, `yarn` shims); **Node.js 26 LTS** and its Fedora-packaged **npm 11.x** (`npm`/`npx`) |
 | Python | `python3`, `python3-pip`, `python3-devel`, `python3-virtualenv`, `pipx`, `uv`; also `python3 -m venv` |
 | Rust / Go | `rust`, `cargo`, `golang` (`go`, `gofmt`) |
 | Native builds | `gcc`, `gcc-c++`, `make`, `cmake`, `pkgconf-pkg-config`, `openssl-devel`, `libffi-devel`, `zlib-devel` |
 
-The `usb` profile additionally has `usbutils`, `libusb1`, `libusb1-devel`; the `nested` profile additionally has `bubblewrap` (the shared list already includes `util-linux`). Fedora updates and RPM installation run during uncached builds. After installation, the build queries Fedora's own **pending security advisories** with `dnf advisory list --security --available --json`, and fails if any security update remains available or the query fails. No language package registry or third-party installer is invoked at build time. Corepack can download the project-selected pnpm/Yarn version at **runtime**.
+The `usb` profile additionally has `usbutils`, `libusb1`, `libusb1-devel`; the `nested` profile additionally has `bubblewrap` (the shared list already includes `util-linux`). Fedora updates and RPM installation run during uncached builds. Node.js 26 and its matching npm 11.x are both installed from Fedora RPMs; the build does **not** contact the npm registry. The build downloads the specified fish 4.9.3 RPM for the image architecture from the openSUSE `shells:fish` Fedora 44 repository, verifies its RPM signature against a pinned signing key, and fails closed if the key changes. After installation, the build queries Fedora's own **pending security advisories** with `dnf advisory list --security --available --json`, and fails if any security update remains available or the query fails. Fedora advisory checks cover Fedora RPMs; they do **not** provide security advisories for the OBS fish RPM. Corepack can download the project-selected pnpm/Yarn version at **runtime**.
 
 The launcher opens **fish by default** when no command is provided (`/bin/sh` remains available explicitly). The image also sets `SHELL=/usr/bin/fish` and uses fish as its default image command. All package-manager user installs belong under the **persistent, writable `/work` named volume**, since the system directories are read-only in `strict` and `usb`. The launcher sets `HOME=/work`, `XDG_CONFIG_HOME=/work/.config`, and `XDG_DATA_HOME=/work/.local/share` so fish history and configuration are stored on that volume:
 

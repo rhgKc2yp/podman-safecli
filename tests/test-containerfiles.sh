@@ -27,11 +27,25 @@ for profile in strict usb nested; do
 done
 
 for rpm in \
-  fish nano nodejs nodejs-npm nodejs-corepack python3 python3-pip \
+  nano nodejs26 nodejs26-bin nodejs26-npm-bin nodejs26-devel nodejs-corepack python3 python3-pip \
   python3-virtualenv pipx uv rust cargo golang curl wget unzip \
   gcc gcc-c++ make pkgconf-pkg-config; do
   grep -Fqx "  $rpm" "$toolchain"
 done
+
+for rpm in fish nodejs nodejs-npm nodejs-devel; do
+  if grep -Fqx "  $rpm" "$toolchain"; then
+    echo "Unexpected default Fedora RPM instead of the requested version: $rpm" >&2
+    exit 1
+  fi
+done
+grep -Fq 'fish-4.9.3-8.2.$fish_arch.rpm' "$toolchain"
+grep -Fq 'rpmkeys --checksig "$fish_rpm"' "$toolchain"
+grep -Fq -- '--setopt=localpkg_gpgcheck=True' "$toolchain"
+if grep -Eq 'npm install --global|npm@12' "$toolchain"; then
+  echo 'npm must remain Fedora-packaged; do not bootstrap from npm registry.' >&2
+  exit 1
+fi
 
 for excluded_rpm in gh ruby ruby-devel rubygems rubygem-bundler php-cli perl lua \
                     java-25-openjdk-headless clang git-lfs; do

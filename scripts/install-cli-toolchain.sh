@@ -7,7 +7,6 @@ set -euo pipefail
 packages=(
   # Essential shells, downloads and Git transport.
   bash
-  fish
   nano
   ca-certificates
   curl
@@ -39,11 +38,13 @@ packages=(
   jq
   ripgrep
 
-  # JavaScript/TypeScript: node, npm/npx, and Corepack (pnpm/yarn shims).
-  # Do not also install the pnpm RPM: Corepack owns /usr/bin/pnpm.
-  nodejs
-  nodejs-npm
-  nodejs-devel
+  # Fedora's unversioned nodejs/nodejs-npm still select Node 22/npm 10.
+  # Explicit -bin packages expose Node 26 and its Fedora-matched npm 11 as node/npm.
+  # Do not install pnpm separately: Corepack owns /usr/bin/pnpm.
+  nodejs26
+  nodejs26-bin
+  nodejs26-npm-bin
+  nodejs26-devel
   nodejs-corepack
 
   # Python: python3 -m venv, pip, virtualenv, pipx and uv.
@@ -70,10 +71,40 @@ packages=(
   zlib-devel
 )
 
-# Keep the original fail-closed security-update behavior. No third-party
-# curl|sh installers or language package downloads run at image build time.
+# Keep the original fail-closed Fedora security-update behavior.
 dnf -y upgrade --refresh
 dnf -y --setopt=install_weak_deps=False install "${packages[@]}" "$@"
+
+# Fish 4.9.3 from the shells:fish OBS repository for Fedora 44. The Fedora 44
+# build is intentionally used on Fedora 45, for both supported architectures.
+# Pin the OBS signing key so a changed key cannot silently be trusted.
+fish_arch=$(rpm --eval '%{_arch}')
+case "$fish_arch" in
+  x86_64|aarch64) ;;
+  *) echo "Unsupported architecture for fish RPM: $fish_arch" >&2; exit 1 ;;
+esac
+fish_repo='https://download.opensuse.org/repositories/shells:/fish/Fedora_44'
+fish_key=$(mktemp)
+fish_rpm=$(mktemp --suffix=.rpm)
+trap 'rm -f "$fish_key" "$fish_rpm"' EXIT
+curl --fail --silent --show-error --location --retry 3 \
+  --proto '=https' --proto-redir '=https' \
+  --output "$fish_key" "$fish_repo/repodata/repomd.xml.key"
+if ! printf '%s  %s\n' \
+  'b69c208011dc5923edac16347df77d04d0f0f280c491b6de82d3a72289d45a18' "$fish_key" \
+  | sha256sum --check --status; then
+  echo 'ERROR: OBS fish signing key differs from the pinned key.' >&2
+  exit 1
+fi
+rpm --import "$fish_key"
+curl --fail --silent --show-error --location --retry 3 \
+  --proto '=https' --proto-redir '=https' \
+  --output "$fish_rpm" "$fish_repo/$fish_arch/fish-4.9.3-8.2.$fish_arch.rpm"
+if ! rpmkeys --checksig "$fish_rpm"; then
+  echo 'ERROR: OBS fish RPM signature verification failed.' >&2
+  exit 1
+fi
+dnf -y --setopt=install_weak_deps=False --setopt=localpkg_gpgcheck=True install "$fish_rpm"
 
 # Fedora RPM CVEs are not covered by Trivy's supported distro advisory feeds.
 # Check Fedora's own updateinfo after installing every RPM, while DNF's
@@ -106,3 +137,10 @@ for binary in fish nano node npm npx corepack python3 pip3 virtualenv pipx uv ru
     exit 1
   }
 done
+
+[[ $(node --version) == v26.* ]] || { echo 'Expected Node.js 26.' >&2; exit 1; }
+[[ $(npm --version) == 11.* ]] || { echo 'Expected Fedora npm 11.' >&2; exit 1; }
+[[ $(fish --version) == 'fish, version 4.9.3' ]] || {
+  echo 'Expected fish 4.9.3 from OBS.' >&2
+  exit 1
+}
