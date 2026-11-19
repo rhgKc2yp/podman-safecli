@@ -56,7 +56,7 @@ Python's system environment is distribution-managed: install Python dependencies
 
 Linux, rootless Podman, working cgroup v2/user namespaces and `pasta` (typically the `passt` package) are required. Run as a regular user, **not `sudo`**. USB mode also needs `crun` and host device permissions.
 
-Build locally (fresh Fedora and RPM updates):
+Build locally (fresh Fedora and RPM updates). The launcher uses these images when a matching GHCR image is not present; set `IMAGE_PREFIX=localhost/safecli` to explicitly select your local build when both are available:
 
 ```sh
 podman build --pull=always --no-cache -f Containerfile.strict -t localhost/safecli-strict:latest .
@@ -68,15 +68,14 @@ podman cp ./unknown-cli safecli-strict-trial:/work/unknown-cli
 ./safecli.sh strict trial /work/unknown-cli --help
 ```
 
-For prebuilt GHCR images, replace `owner/repo` with the lowercase GitHub repository path:
+For published GHCR images, **pull and run directly**. The launcher automatically picks the locally downloaded image for the selected profile:
 
 ```sh
-podman pull ghcr.io/owner/repo-strict:latest
-podman pull ghcr.io/owner/repo-usb:latest
-podman pull ghcr.io/owner/repo-nested:latest
-export IMAGE_PREFIX=ghcr.io/owner/repo
+podman pull ghcr.io/rhgkc2yp/podman-safecli-strict:latest
 ./safecli.sh strict trial
 ```
+
+For the other profiles, pull `ghcr.io/rhgkc2yp/podman-safecli-usb:latest` or `ghcr.io/rhgkc2yp/podman-safecli-nested:latest` first. No `IMAGE_PREFIX` export is required. The preference is **GHCR if present, otherwise a local `localhost/safecli` build**. Explicit `IMAGE` or `IMAGE_PREFIX` overrides this selection. Images are never pulled automatically by the launcher.
 
 Other profile examples:
 
@@ -86,15 +85,15 @@ USB_DEVICE=/dev/bus/usb/001/005 ./safecli.sh usb device-test
 NETWORK=none ./safecli.sh strict offline-test
 ```
 
-`usb` allows only specified USB/serial/hidraw character devices; SELinux may still restrict device access. Nested user namespaces depend on host kernel/LSM settings and may not work on every host. For exact image selection, use `IMAGE='ghcr.io/owner/repo-strict@sha256:REPLACE_WITH_64_HEX_DIGEST'`; `IMAGE_TAG` and `IMAGE_PREFIX` are alternatives. The launcher uses `--pull=never`: pull the image explicitly before creating a sandbox.
+`usb` allows only specified USB/serial/hidraw character devices; SELinux may still restrict device access. Nested user namespaces depend on host kernel/LSM settings and may not work on every host. For exact image selection, use `IMAGE='ghcr.io/rhgkc2yp/podman-safecli-strict@sha256:REPLACE_WITH_64_HEX_DIGEST'`; `IMAGE_TAG` and `IMAGE_PREFIX` are alternatives. The launcher uses `--pull=never`: pull the image explicitly before creating a sandbox.
 
 Containers and their `/work` volumes persist. To apply a new image, **recreate the container**; restarting it is not enough. Do not delete the named volume unless you want to delete its data:
 
 ```sh
 podman stop safecli-strict-trial
 podman rm safecli-strict-trial
-podman pull ghcr.io/owner/repo-strict:latest
-IMAGE_PREFIX=ghcr.io/owner/repo ./safecli.sh strict trial
+podman pull ghcr.io/rhgkc2yp/podman-safecli-strict:latest
+./safecli.sh strict trial
 # optional cleanup of data, irreversible: podman volume rm safecli-vol-strict-trial
 ```
 

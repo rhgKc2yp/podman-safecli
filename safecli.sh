@@ -13,7 +13,7 @@ usage() {
 Usage: safecli.sh {strict|usb|nested} NAME [COMMAND [ARG...]]
   Without COMMAND, open fish (use /bin/sh explicitly for a POSIX shell).
   IMAGE=...                    Exact image (overrides prefix / tag)
-  IMAGE_PREFIX=...             Image base, e.g. ghcr.io/owner/repo (default: localhost/safecli)
+  IMAGE_PREFIX=...             Image base (default: ghcr.io/rhgkc2yp/podman-safecli)
   IMAGE_TAG=...                Image tag (default: latest)
   USB_DEVICE=/dev/...          Required for USB mode, exact character device
   NETWORK=pasta|slirp4netns|none  All modes (default: pasta; none disables network)
@@ -40,7 +40,9 @@ command -v podman >/dev/null 2>&1 || { echo 'ERROR: podman not found' >&2; exit 
 [[ $(uname -s) == Linux ]] || { echo 'ERROR: Linux host required.' >&2; exit 1; }
 (( $(id -u) != 0 )) || { echo 'ERROR: run as regular user; do NOT use sudo.' >&2; exit 1; }
 
-image=${IMAGE:-${IMAGE_PREFIX:-localhost/safecli}-${mode}:${IMAGE_TAG:-latest}}
+# Prefer the published GHCR image. If absent, use an existing local build
+# only when the caller did not explicitly select an image or prefix.
+image=${IMAGE:-${IMAGE_PREFIX:-ghcr.io/rhgkc2yp/podman-safecli}-${mode}:${IMAGE_TAG:-latest}}
 container="safecli-${mode}-${name}"
 volume="safecli-vol-${mode}-${name}"
 net=${NETWORK:-pasta}
@@ -50,12 +52,17 @@ esac
 
 # Probe image only on creation: podman exec on an existing container does not need it.
 if ! podman container exists "$container"; then
-  podman image exists "$image" || {
-    echo "ERROR: Image not available locally: $image" >&2
-    echo "Pull a published image: podman pull '$image'" >&2
-    echo "Or build locally: podman build -f Containerfile.$mode -t '$image' ." >&2
-    exit 1
-  }
+  if ! podman image exists "$image"; then
+    local_image="localhost/safecli-${mode}:${IMAGE_TAG:-latest}"
+    if [[ -z "${IMAGE:-}" && -z "${IMAGE_PREFIX:-}" ]] && podman image exists "$local_image"; then
+      image=$local_image
+    else
+      echo "ERROR: Image not available locally: $image" >&2
+      echo "Pull a published image: podman pull '$image'" >&2
+      echo "Or build locally: podman build -f Containerfile.$mode -t '$local_image' ." >&2
+      exit 1
+    fi
+  fi
 
   if [[ "$mode" == nested ]]; then
     limit_pids=384; limit_mem=3g
