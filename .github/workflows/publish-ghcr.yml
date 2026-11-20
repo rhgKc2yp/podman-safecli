@@ -33,7 +33,7 @@ jobs:
         run: |
           bash -n safecli.sh scripts/promote-image.sh scripts/install-cli-toolchain.sh scripts/generate-sboms.sh
           bash tests/test-containerfiles.sh
-          python3 -m unittest discover -s tests -p 'test_obs_fish_update.py' -v
+          python3 -m unittest discover -s tests -p 'test_*.py' -v
           bash tests/test-security-updates.sh
           bash tests/test-fedora-advisories.sh
           bash tests/test-sbom-generation.sh
